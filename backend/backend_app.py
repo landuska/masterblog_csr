@@ -44,7 +44,7 @@ def authenticate():
     return token if token else None
 
 
-@app.route('/api/posts', methods=['POST'])
+@app.route('/api/v1/posts', methods=['POST'])
 @limiter.limit("10/minute")
 def create_posts():
     user = authenticate()
@@ -74,7 +74,7 @@ def create_posts():
     return jsonify(new_post, {"message": f"Post was created successfully"}), 201
 
 
-@app.route('/api/posts/<int:post_id>', methods=['DELETE'])
+@app.route('/api/v1/posts/<int:post_id>', methods=['DELETE'])
 def delete(post_id):
     user = authenticate()
     if not user:
@@ -88,7 +88,7 @@ def delete(post_id):
     return jsonify({"error": f"Post with id {post_id} not found."}), 404
 
 
-@app.route('/api/posts/<int:post_id>', methods=['PUT'])
+@app.route('/api/v1/posts/<int:post_id>', methods=['PUT'])
 def put(post_id):
     user = authenticate()
     if not user:
@@ -108,7 +108,7 @@ def put(post_id):
     return jsonify({"error": f"Post with id {post_id} not found."}), 404
 
 
-@app.route('/api/posts/search', methods=['GET'])
+@app.route('/api/v1/posts/search', methods=['GET'])
 @limiter.limit("10/minute")
 def search():
     user = authenticate()
@@ -129,7 +129,7 @@ def search():
     return jsonify(results), 200
 
 
-@app.route('/api/posts', methods=['GET'])
+@app.route('/api/v1/posts', methods=['GET'])
 @limiter.limit("10/minute")
 def get_sorted_posts():
     user = authenticate()
@@ -164,12 +164,12 @@ def get_sorted_posts():
     return jsonify(pagination_results), 200
 
 
-@app.route('/api/categories', methods=['GET'])
+@app.route('/api/v1/categories', methods=['GET'])
 def get_categories():
     return jsonify(CATEGORIES), 200
 
 
-@app.route('/api/posts/filter', methods=['GET'])
+@app.route('/api/v1/posts/filter', methods=['GET'])
 @limiter.limit("10/minute")
 def filter_posts():
     user = authenticate()
@@ -189,7 +189,7 @@ def filter_posts():
     return jsonify(results), 200
 
 
-@app.route('/api/register', methods=['POST'])
+@app.route('/api/v1/register', methods=['POST'])
 def register():
     data = request.get_json()
 
@@ -217,7 +217,7 @@ def register():
     return jsonify({"message": "User registered successfully"}), 201
 
 
-@app.route('/api/login', methods=['POST'])
+@app.route('/api/v1/login', methods=['POST'])
 @limiter.limit("10/minute")
 def login():
     data = request.get_json()
