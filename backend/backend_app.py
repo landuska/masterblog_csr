@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+import uuid
 
 app = Flask(__name__)
 CORS(app)  # This will enable CORS for all routes
@@ -17,24 +18,35 @@ CATEGORIES = [
     {"id": 3, "name": "Restaurant"},
 ]
 
+USERS = [{"user_id": 1, "username": "Landysh", "password": 123, "token": "655fb71f-e927-4bc1-b413-7942c09b9f34"}]
 
-def create_id(posts):
+
+def create_id(lst):
     """
     Generates a new unique ID based on the highest existing ID in the list.
 
     Args:
-        posts (list): The current list of blog posts.
+       lst: The current list
 
     Returns:
         int: The next available unique integer ID.
     """
-    if not posts:
+    if not lst:
         return 1
-    return max(int(post["id"]) for post in posts) + 1
+    return max(int(item["id"]) for item in lst) + 1
+
+
+def authenticate():
+    token = request.headers.get("Authorization")
+    return token if token else None
 
 
 @app.route('/api/posts', methods=['POST'])
 def create_posts():
+    user = authenticate()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
     data = request.get_json()
 
     if not data:
@@ -55,11 +67,15 @@ def create_posts():
     }
     POSTS.append(new_post)
 
-    return jsonify(new_post), 201
+    return jsonify(new_post, {"message": f"Post was created successfully"}), 201
 
 
 @app.route('/api/posts/<int:post_id>', methods=['DELETE'])
 def delete(post_id):
+    user = authenticate()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
     for post in POSTS:
         if post["id"] == post_id:
             POSTS.remove(post)
@@ -70,6 +86,10 @@ def delete(post_id):
 
 @app.route('/api/posts/<int:post_id>', methods=['PUT'])
 def put(post_id):
+    user = authenticate()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
     data = request.get_json()
 
     if not data:
@@ -79,13 +99,17 @@ def put(post_id):
         if post["id"] == post_id:
             post["title"] = data.get("title")
             post["content"] = data.get("content")
-            return jsonify(post), 200
+            return jsonify(post, {"message": "Post was updated successfully"}), 200
 
     return jsonify({"error": f"Post with id {post_id} not found."}), 404
 
 
 @app.route('/api/posts/search', methods=['GET'])
 def search():
+    user = authenticate()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
     title_query = request.args.get("title")
     content_query = request.args.get("content")
     results = []
@@ -102,6 +126,10 @@ def search():
 
 @app.route('/api/posts', methods=['GET'])
 def get_sorted_posts():
+    user = authenticate()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
     page = int(request.args.get('page', 1))
     limit = int(request.args.get('limit', 10))
 
@@ -137,6 +165,10 @@ def get_categories():
 
 @app.route('/api/posts/filter', methods=['GET'])
 def filter_posts():
+    user = authenticate()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
     category_input = request.args.get('category', '').strip()
     results = []
 
@@ -148,6 +180,54 @@ def filter_posts():
             results = [post for post in POSTS if post["category_id"] == category["id"]]
 
     return jsonify(results), 200
+
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "No JSON provided"}), 400
+
+    username = data.get("username").strip()
+    password = data.get("password").strip()
+
+    if not username or not password:
+        return jsonify({"error": "Username and password are required"}), 400
+
+    for user in USERS:
+        if user["username"] == username:
+            return jsonify({"error": "User already exists"}), 400
+
+    new_user = {
+        "user_id": create_id(USERS),
+        "username": username,
+        "password": password
+    }
+
+    USERS.append(new_user)
+
+    return jsonify({"message": "User registered successfully"}), 201
+
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "No JSON provided"}), 400
+
+    username = data.get("username")
+    password = data.get("password")
+
+    for user in USERS:
+        if user["username"] == username and user["password"] == password:
+            token = str(uuid.uuid4())
+            user["token"] = token
+
+            return jsonify({"message": "Login successful", "token": token}), 200
+
+    return jsonify({"error": "Invalid username or password"}), 401
 
 
 if __name__ == '__main__':
