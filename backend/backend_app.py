@@ -5,8 +5,16 @@ app = Flask(__name__)
 CORS(app)  # This will enable CORS for all routes
 
 POSTS = [
-    {"id": 1, "title": "First post", "content": "This is the first post."},
-    {"id": 2, "title": "Second post", "content": "This is the second post."},
+    {"id": 1, "title": "First post", "content": "This is the first post.", "category_id": 1},
+    {"id": 2, "title": "Second post", "content": "This is the second post.", "category_id": 2},
+    {"id": 3, "title": "Third post", "content": "This is the third post.", "category_id": 3},
+    {"id": 4, "title": "Fourth post", "content": "This is the fourth post.", "category_id": 3}
+]
+
+CATEGORIES = [
+    {"id": 1, "name": "Python"},
+    {"id": 2, "name": "Weather"},
+    {"id": 3, "name": "Restaurant"},
 ]
 
 
@@ -34,16 +42,16 @@ def create_posts():
 
     title = data.get("title")
     content = data.get("content")
+    category_id = data.get("category_id")
 
-    if not title:
-        return jsonify({"error": "Title is required"}), 400
-    if not content:
-        return jsonify({"error": "Content is required"}), 400
+    if not title or not content or not category_id:
+        return jsonify({"error": "Title, content and  category_id are required"}), 400
 
     new_post = {
         "id": create_id(POSTS),
         "title": title,
-        "content": content
+        "content": content,
+        "category_id": category_id
     }
     POSTS.append(new_post)
 
@@ -110,9 +118,9 @@ def get_sorted_posts():
             return jsonify({"error": f"Direction should be 'asc' or 'desc'."}), 400
 
         if direction == 'asc':
-            results = sorted(POSTS, key=lambda x: x[sort].lower(), reverse=False)
+            results = sorted(results, key=lambda x: x[sort].lower(), reverse=False)
         else:
-            results = sorted(POSTS, key=lambda x: x[sort].lower(), reverse=True)
+            results = sorted(results, key=lambda x: x[sort].lower(), reverse=True)
 
     start_index = (page - 1) * limit
     end_index = start_index + limit
@@ -120,6 +128,26 @@ def get_sorted_posts():
     pagination_results = results[start_index:end_index]
 
     return jsonify(pagination_results), 200
+
+
+@app.route('/api/categories', methods=['GET'])
+def get_categories():
+    return jsonify(CATEGORIES), 200
+
+
+@app.route('/api/posts/filter', methods=['GET'])
+def filter_posts():
+    category_input = request.args.get('category', '').strip()
+    results = []
+
+    if not category_input:
+        return jsonify({"error": f"Category is required."}), 400
+
+    for category in CATEGORIES:
+        if category["name"].lower() == category_input.lower():
+            results = [post for post in POSTS if post["category_id"] == category["id"]]
+
+    return jsonify(results), 200
 
 
 if __name__ == '__main__':
