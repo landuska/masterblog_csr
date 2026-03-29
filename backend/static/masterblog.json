@@ -1,0 +1,361 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "Masterblog API",
+    "description": "API for managing blog posts",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5002",
+      "description": "Post API - CRUD"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "User registration and authentication"
+    },
+    {
+      "name": "Post",
+      "description": "Operations on blog posts"
+    },
+    {
+      "name": "Category",
+      "description": "Operations on categories"
+    }
+  ],
+  "paths": {
+    "/api/v1/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Register a new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "username",
+                  "password"
+                ],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "example": "username"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "password"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully"
+          },
+          "400": {
+            "description": "Missing payload or username already exists"
+          }
+        }
+      }
+    },
+    "/api/v1/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Authenticate a user and retrieve a session token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "username",
+                  "password"
+                ],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "example": "username"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "password"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful, returns a UUID token"
+          },
+          "401": {
+            "description": "Invalid username or password"
+          }
+        }
+      }
+    },
+    "/api/v1/posts": {
+      "get": {
+        "tags": [
+          "Post"
+        ],
+        "summary": "Retrieve all posts with pagination and sorting",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            },
+            "description": "Page number"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            },
+            "description": "Number of items per page"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Field to sort by: 'title' or 'content'"
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "asc"
+            },
+            "description": "Sort order: 'asc' or 'desc'"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A paginated and sorted list of posts"
+          },
+          "400": {
+            "description": "Invalid sort parameters passed"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Post"
+        ],
+        "summary": "Create a new blog post (Authentication required)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "content",
+                  "category_id"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "example": "New Post"
+                  },
+                  "content": {
+                    "type": "string",
+                    "example": "This is the content of the post."
+                  },
+                  "category_id": {
+                    "type": "integer",
+                    "example": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Post created successfully"
+          },
+          "400": {
+            "description": "Missing required fields in JSON"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/posts/{post_id}": {
+      "put": {
+        "tags": [
+          "Post"
+        ],
+        "summary": "Update an existing post (Authentication required)",
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "The unique ID of the post"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "example": "Updated Title"
+                  },
+                  "content": {
+                    "type": "string",
+                    "example": "Updated Content"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Post updated successfully"
+          },
+          "404": {
+            "description": "Post not found"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Post"
+        ],
+        "summary": "Delete a post by ID (Authentication required)",
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "The unique ID of the post"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post deleted successfully"
+          },
+          "404": {
+            "description": "Post not found"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/posts/search": {
+      "get": {
+        "tags": [
+          "Post"
+        ],
+        "summary": "Search posts by title or content keywords",
+        "parameters": [
+          {
+            "name": "title",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Keyword to look for in post titles"
+          },
+          {
+            "name": "content",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Keyword to look for in post contents"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of matching post objects"
+          }
+        }
+      }
+    },
+    "/api/v1/posts/filter": {
+      "get": {
+        "tags": [
+          "Post"
+        ],
+        "summary": "Filter posts by a specific category name",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Name of the category to filter by"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of posts matching the requested category"
+          },
+          "400": {
+            "description": "Category parameter is missing"
+          },
+          "404": {
+            "description": "Category not found"
+          }
+        }
+      }
+    },
+    "/api/v1/categories": {
+      "get": {
+        "tags": [
+          "Category"
+        ],
+        "summary": "Retrieve all available blog categories",
+        "responses": {
+          "200": {
+            "description": "A list of category objects"
+          }
+        }
+      }
+    }
+  }
+}

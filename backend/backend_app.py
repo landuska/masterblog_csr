@@ -3,11 +3,22 @@ from flask_cors import CORS
 import uuid
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from helpers import create_id, authenticate
+import helpers
+from flask_swagger_ui import get_swaggerui_blueprint
 
 app = Flask(__name__)
 limiter = Limiter(app=app, key_func=get_remote_address)
-CORS(app)  # This will enable CORS for all routes
+CORS(app)
+SWAGGER_URL = "/api/docs"
+API_URL = "/static/masterblog.json"
+
+swagger_ui_blueprint = get_swaggerui_blueprint(SWAGGER_URL,
+                                               API_URL,
+                                               config={
+                                                   'app_name': 'Masterblog API'
+                                               }
+                                               )
+app.register_blueprint(swagger_ui_blueprint, url_prefix=SWAGGER_URL)
 
 POSTS = [
     {"id": 1, "title": "First post", "content": "This is the first post.", "category_id": 1},
@@ -43,7 +54,7 @@ def create_posts():
         JSON: The created post object with a success message (201).
         JSON: Error messages for missing data or missing authentication (400, 401).
     """
-    user = authenticate()
+    user = helpers.authenticate()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -60,7 +71,7 @@ def create_posts():
         return jsonify({"error": "Title, content and  category_id are required"}), 400
 
     new_post = {
-        "id": create_id(POSTS),
+        "id": helpers.create_id(POSTS),
         "title": title,
         "content": content,
         "category_id": category_id
@@ -84,7 +95,7 @@ def delete(post_id):
         JSON: A success message (200).
         JSON: Error messages if not authorized or if the post is not found (401, 404).
     """
-    user = authenticate()
+    user = helpers.authenticate()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -114,7 +125,7 @@ def put(post_id):
         JSON: The updated post object with a success message (200).
         JSON: Error messages for missing data, missing authentication, or post not found (400, 401, 404).
     """
-    user = authenticate()
+    user = helpers.authenticate()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -285,7 +296,7 @@ def register():
             return jsonify({"error": "User already exists"}), 400
 
     new_user = {
-        "id": create_id(USERS),
+        "id": helpers.create_id(USERS),
         "username": username,
         "password": password
     }
