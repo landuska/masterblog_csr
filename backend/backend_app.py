@@ -1,8 +1,11 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import uuid
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
+limiter = Limiter(app=app, key_func=get_remote_address)
 CORS(app)  # This will enable CORS for all routes
 
 POSTS = [
@@ -42,6 +45,7 @@ def authenticate():
 
 
 @app.route('/api/posts', methods=['POST'])
+@limiter.limit("10/minute")
 def create_posts():
     user = authenticate()
     if not user:
@@ -105,6 +109,7 @@ def put(post_id):
 
 
 @app.route('/api/posts/search', methods=['GET'])
+@limiter.limit("10/minute")
 def search():
     user = authenticate()
     if not user:
@@ -125,6 +130,7 @@ def search():
 
 
 @app.route('/api/posts', methods=['GET'])
+@limiter.limit("10/minute")
 def get_sorted_posts():
     user = authenticate()
     if not user:
@@ -164,6 +170,7 @@ def get_categories():
 
 
 @app.route('/api/posts/filter', methods=['GET'])
+@limiter.limit("10/minute")
 def filter_posts():
     user = authenticate()
     if not user:
@@ -211,6 +218,7 @@ def register():
 
 
 @app.route('/api/login', methods=['POST'])
+@limiter.limit("10/minute")
 def login():
     data = request.get_json()
 
