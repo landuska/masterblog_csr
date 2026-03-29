@@ -4,7 +4,9 @@ import uuid
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import helpers
+import json_helpers
 from flask_swagger_ui import get_swaggerui_blueprint
+import os
 
 app = Flask(__name__)
 limiter = Limiter(app=app, key_func=get_remote_address)
@@ -20,20 +22,10 @@ swagger_ui_blueprint = get_swaggerui_blueprint(SWAGGER_URL,
                                                )
 app.register_blueprint(swagger_ui_blueprint, url_prefix=SWAGGER_URL)
 
-POSTS = [
-    {"id": 1, "title": "First post", "content": "This is the first post.", "category_id": 1},
-    {"id": 2, "title": "Second post", "content": "This is the second post.", "category_id": 2},
-    {"id": 3, "title": "Third post", "content": "This is the third post.", "category_id": 3},
-    {"id": 4, "title": "Fourth post", "content": "This is the fourth post.", "category_id": 3}
-]
-
-CATEGORIES = [
-    {"id": 1, "name": "Python"},
-    {"id": 2, "name": "Weather"},
-    {"id": 3, "name": "Restaurant"},
-]
-
-USERS = [{"id": 1, "username": "Landysh", "password": "123", "token": "655fb71f-e927-4bc1-b413-7942c09b9f34"}]
+project_root = os.path.dirname(os.path.abspath(__file__))
+posts_path = os.path.join(project_root, "data", "posts.json")
+categories_path = os.path.join(project_root, "data", "categories.json")
+users_path = os.path.join(project_root, "data", "users.json")
 
 
 @app.route('/api/v1/posts', methods=['POST'])
@@ -54,7 +46,9 @@ def create_posts():
         JSON: The created post object with a success message (201).
         JSON: Error messages for missing data or missing authentication (400, 401).
     """
+    posts = json_helpers.load_file(posts_path)
     user = helpers.authenticate()
+
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -71,12 +65,13 @@ def create_posts():
         return jsonify({"error": "Title, content and  category_id are required"}), 400
 
     new_post = {
-        "id": helpers.create_id(POSTS),
+        "id": helpers.create_id(posts),
         "title": title,
         "content": content,
         "category_id": category_id
     }
-    POSTS.append(new_post)
+    posts.append(new_post)
+    json_helpers.write_file(posts, posts_path)
 
     return jsonify({"post": new_post, "message": "Post was created successfully"}), 201
 
@@ -95,13 +90,15 @@ def delete(post_id):
         JSON: A success message (200).
         JSON: Error messages if not authorized or if the post is not found (401, 404).
     """
+    posts = json_helpers.load_file(posts_path)
     user = helpers.authenticate()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
-    for post in POSTS:
+    for post in posts:
         if post["id"] == post_id:
-            POSTS.remove(post)
+            posts.remove(post)
+            json_helpers.write_file(posts, posts_path)
             return jsonify({"message": f"Post with id {post_id} has been deleted successfully."}), 200
 
     return jsonify({"error": f"Post with id {post_id} not found."}), 404
@@ -125,6 +122,7 @@ def put(post_id):
         JSON: The updated post object with a success message (200).
         JSON: Error messages for missing data, missing authentication, or post not found (400, 401, 404).
     """
+    posts = json_helpers.load_file(posts_path)
     user = helpers.authenticate()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
@@ -134,10 +132,11 @@ def put(post_id):
     if not data:
         return jsonify({"error": "JSON data is not provided"}), 400
 
-    for post in POSTS:
+    for post in posts:
         if post["id"] == post_id:
             post["title"] = data.get("title")
             post["content"] = data.get("content")
+            json_helpers.write_file(posts, posts_path)
             return jsonify({"post": post, "message": "Post was updated successfully"}), 200
 
     return jsonify({"error": f"Post with id {post_id} not found."}), 404
@@ -158,11 +157,12 @@ def search():
     Returns:
         JSON: A list of matching post objects (200).
     """
+    posts = json_helpers.load_file(posts_path)
     title_query = request.args.get("title")
     content_query = request.args.get("content")
     results = []
 
-    for post in POSTS:
+    for post in posts:
         title_match = title_query and title_query.lower() in post["title"].lower()
         content_match = content_query and content_query.lower() in post["content"].lower()
 
@@ -190,13 +190,12 @@ def get_sorted_posts():
         JSON: A list of paginated and sorted post objects (200).
         JSON: Error message if invalid sort parameters are passed (400).
     """
+    results = json_helpers.load_file(posts_path)
     page = int(request.args.get('page', 1))
     limit = int(request.args.get('limit', 10))
 
     sort = request.args.get('sort', '').lower().strip()
     direction = request.args.get('direction', 'asc').lower().strip()
-
-    results = list(POSTS)
 
     if sort:
         if sort not in ['title', 'content']:
@@ -226,7 +225,8 @@ def get_categories():
     Returns:
         JSON: A list of category objects (200).
     """
-    return jsonify(CATEGORIES), 200
+    categories = json_helpers.load_file(categories_path)
+    return jsonify(categories), 200
 
 
 @app.route('/api/v1/posts/filter', methods=['GET'])
@@ -244,6 +244,8 @@ def filter_posts():
         JSON: A list of post objects within the requested category (200).
         JSON: Error messages if missing parameter or category not found (400, 404).
     """
+    categories = json_helpers.load_file(categories_path)
+    posts = json_helpers.load_file(posts_path)
     category_input = request.args.get('category', '').strip()
 
     if not category_input:
@@ -251,7 +253,7 @@ def filter_posts():
 
     found_category = None
 
-    for category in CATEGORIES:
+    for category in categories:
         if category["name"].lower() == category_input.lower():
             found_category = category
             break
@@ -259,7 +261,7 @@ def filter_posts():
     if not found_category:
         return jsonify({"error": f"Category not found."}), 404
 
-    results = [post for post in POSTS if post["category_id"] == found_category["id"]]
+    results = [post for post in posts if post["category_id"] == found_category["id"]]
 
     return jsonify(results), 200
 
@@ -280,6 +282,7 @@ def register():
         JSON: A success message (201).
         JSON: Error messages for missing payload or existing username (400).
     """
+    users = json_helpers.load_file(users_path)
     data = request.get_json()
 
     if not data:
@@ -291,17 +294,18 @@ def register():
     if not username or not password:
         return jsonify({"error": "Username and password are required"}), 400
 
-    for user in USERS:
+    for user in users:
         if user["username"] == username:
             return jsonify({"error": "User already exists"}), 400
 
     new_user = {
-        "id": helpers.create_id(USERS),
+        "id": helpers.create_id(users),
         "username": username,
         "password": password
     }
 
-    USERS.append(new_user)
+    users.append(new_user)
+    json_helpers.write_file(users, users_path)
 
     return jsonify({"message": "User registered successfully"}), 201
 
@@ -322,6 +326,7 @@ def login():
         JSON: A success message and the generated UUID token (200).
         JSON: Error messages for missing payload or invalid credentials (400, 401).
     """
+    users = json_helpers.load_file(users_path)
     data = request.get_json()
 
     if not data:
@@ -330,10 +335,11 @@ def login():
     username = data.get("username")
     password = data.get("password")
 
-    for user in USERS:
+    for user in users:
         if user["username"] == username and user["password"] == password:
             token = str(uuid.uuid4())
-            user["token"] = token
+            user["token"] = f"Bearer {token}"
+            json_helpers.write_file(users, users_path)
 
             return jsonify({"message": "Login successful", "token": token}), 200
 

@@ -1,5 +1,9 @@
 from flask import request
-from backend_app import USERS
+import json_helpers
+import os
+
+project_root = os.path.dirname(os.path.abspath(__file__))
+users_path = os.path.join(project_root, "data", "users.json")
 
 
 def create_id(lst):
@@ -25,11 +29,13 @@ def authenticate():
         dict: The user dictionary if the token is valid.
         None: If the token is missing or invalid.
     """
+    users = json_helpers.load_file(users_path)
     token = request.headers.get("Authorization")
+
     if not token:
         return None
 
-    for user in USERS:
+    for user in users:
         if user.get("token") == token:
             return user
     return None
