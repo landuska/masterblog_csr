@@ -25,33 +25,29 @@ def create_id(posts):
     return max(int(post["id"]) for post in posts) + 1
 
 
-@app.route('/api/posts', methods=['GET', 'POST'])
+@app.route('/api/posts', methods=['POST'])
 def get_posts():
-    if request.method == 'POST':
-        data = request.get_json()
+    data = request.get_json()
 
-        if not data:
-            return jsonify({"error": "JSON data is not provided"}), 400
+    if not data:
+        return jsonify({"error": "JSON data is not provided"}), 400
 
-        title = data.get("title")
-        content = data.get("content")
+    title = data.get("title")
+    content = data.get("content")
 
-        if not title:
-            return jsonify({"error": "Title is required"}), 400
-        if not content:
-            return jsonify({"error": "Content is required"}), 400
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+    if not content:
+        return jsonify({"error": "Content is required"}), 400
 
-        new_post = {
-            "id": create_id(POSTS),
-            "title": title,
-            "content": content
-        }
-        POSTS.append(new_post)
+    new_post = {
+        "id": create_id(POSTS),
+        "title": title,
+        "content": content
+    }
+    POSTS.append(new_post)
 
-        return jsonify(new_post), 201
-
-    elif request.method == 'GET':
-        return jsonify(POSTS), 200
+    return jsonify(new_post), 201
 
 
 @app.route('/api/posts/<int:post_id>', methods=['DELETE'])
@@ -94,6 +90,27 @@ def search():
             results.append(post)
 
     return jsonify(results), 200
+
+
+@app.route('/api/posts', methods=['GET'])
+def get_sorted_posts():
+    sort = request.args.get('sort', '').lower().strip()
+    direction = request.args.get('direction', 'asc').lower().strip()
+
+    if sort:
+        if sort not in ['title', 'content']:
+            return jsonify({"error": f"Sort should be 'title' or 'content'."}), 400
+
+        if direction not in ['asc', 'desc']:
+            return jsonify({"error": f"Direction should be 'asc' or 'desc'."}), 400
+
+        if direction == 'asc':
+            results = sorted(POSTS, key=lambda x: x[sort].lower(), reverse=False)
+        else:
+            results = sorted(POSTS, key=lambda x: x[sort].lower(), reverse=True)
+
+        return jsonify(results), 200
+    return jsonify(POSTS), 200
 
 
 if __name__ == '__main__':
