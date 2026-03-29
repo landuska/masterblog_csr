@@ -26,7 +26,7 @@ def create_id(posts):
 
 
 @app.route('/api/posts', methods=['POST'])
-def get_posts():
+def create_posts():
     data = request.get_json()
 
     if not data:
@@ -94,8 +94,13 @@ def search():
 
 @app.route('/api/posts', methods=['GET'])
 def get_sorted_posts():
+    page = int(request.args.get('page', 1))
+    limit = int(request.args.get('limit', 10))
+
     sort = request.args.get('sort', '').lower().strip()
     direction = request.args.get('direction', 'asc').lower().strip()
+
+    results = list(POSTS)
 
     if sort:
         if sort not in ['title', 'content']:
@@ -109,8 +114,12 @@ def get_sorted_posts():
         else:
             results = sorted(POSTS, key=lambda x: x[sort].lower(), reverse=True)
 
-        return jsonify(results), 200
-    return jsonify(POSTS), 200
+    start_index = (page - 1) * limit
+    end_index = start_index + limit
+
+    pagination_results = results[start_index:end_index]
+
+    return jsonify(pagination_results), 200
 
 
 if __name__ == '__main__':
