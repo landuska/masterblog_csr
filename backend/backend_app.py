@@ -3,6 +3,7 @@ from flask_cors import CORS
 import uuid
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from helpers import create_id, authenticate
 
 app = Flask(__name__)
 limiter = Limiter(app=app, key_func=get_remote_address)
@@ -21,32 +22,27 @@ CATEGORIES = [
     {"id": 3, "name": "Restaurant"},
 ]
 
-USERS = [{"user_id": 1, "username": "Landysh", "password": 123, "token": "655fb71f-e927-4bc1-b413-7942c09b9f34"}]
-
-
-def create_id(lst):
-    """
-    Generates a new unique ID based on the highest existing ID in the list.
-
-    Args:
-       lst: The current list
-
-    Returns:
-        int: The next available unique integer ID.
-    """
-    if not lst:
-        return 1
-    return max(int(item["id"]) for item in lst) + 1
-
-
-def authenticate():
-    token = request.headers.get("Authorization")
-    return token if token else None
+USERS = [{"id": 1, "username": "Landysh", "password": "123", "token": "655fb71f-e927-4bc1-b413-7942c09b9f34"}]
 
 
 @app.route('/api/v1/posts', methods=['POST'])
 @limiter.limit("10/minute")
 def create_posts():
+    """
+    Creates a new blog post.
+
+    Requires authentication.
+    Rate limit: 10 requests per minute.
+
+    JSON body:
+        title (str): The title of the post.
+        content (str): The body content of the post.
+        category_id (int): The associated category ID.
+
+    Returns:
+        JSON: The created post object with a success message (201).
+        JSON: Error messages for missing data or missing authentication (400, 401).
+    """
     user = authenticate()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
@@ -71,11 +67,23 @@ def create_posts():
     }
     POSTS.append(new_post)
 
-    return jsonify(new_post, {"message": f"Post was created successfully"}), 201
+    return jsonify({"post": new_post, "message": "Post was created successfully"}), 201
 
 
 @app.route('/api/v1/posts/<int:post_id>', methods=['DELETE'])
 def delete(post_id):
+    """
+    Deletes an existing blog post by its ID.
+
+    Requires authentication.
+
+    Args:
+        post_id (int): The unique ID of the post to delete.
+
+    Returns:
+        JSON: A success message (200).
+        JSON: Error messages if not authorized or if the post is not found (401, 404).
+    """
     user = authenticate()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
@@ -90,6 +98,22 @@ def delete(post_id):
 
 @app.route('/api/v1/posts/<int:post_id>', methods=['PUT'])
 def put(post_id):
+    """
+    Updates the title and content of an existing post.
+
+    Requires authentication.
+
+    Args:
+        post_id (int): The unique ID of the post to update.
+
+    JSON body:
+        title (str): The updated title of the post.
+        content (str): The updated content of the post.
+
+    Returns:
+        JSON: The updated post object with a success message (200).
+        JSON: Error messages for missing data, missing authentication, or post not found (400, 401, 404).
+    """
     user = authenticate()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
@@ -103,7 +127,7 @@ def put(post_id):
         if post["id"] == post_id:
             post["title"] = data.get("title")
             post["content"] = data.get("content")
-            return jsonify(post, {"message": "Post was updated successfully"}), 200
+            return jsonify({"post": post, "message": "Post was updated successfully"}), 200
 
     return jsonify({"error": f"Post with id {post_id} not found."}), 404
 
@@ -111,10 +135,18 @@ def put(post_id):
 @app.route('/api/v1/posts/search', methods=['GET'])
 @limiter.limit("10/minute")
 def search():
-    user = authenticate()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
+    """
+    Searches for blog posts by title or content.
 
+    Rate limit: 10 requests per minute.
+
+    URL Parameters:
+        title (str, optional): Keyword to search within post titles.
+        content (str, optional): Keyword to search within post contents.
+
+    Returns:
+        JSON: A list of matching post objects (200).
+    """
     title_query = request.args.get("title")
     content_query = request.args.get("content")
     results = []
@@ -132,10 +164,21 @@ def search():
 @app.route('/api/v1/posts', methods=['GET'])
 @limiter.limit("10/minute")
 def get_sorted_posts():
-    user = authenticate()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
+    """
+    Retrieves all blog posts with support for pagination and sorting.
 
+    Rate limit: 10 requests per minute.
+
+    URL Parameters:
+        page (int, optional): The page number to fetch. Defaults to 1.
+        limit (int, optional): The number of posts per page. Defaults to 10.
+        sort (str, optional): The field to sort by ('title' or 'content').
+        direction (str, optional): The sort order ('asc' or 'desc'). Defaults to 'asc'.
+
+    Returns:
+        JSON: A list of paginated and sorted post objects (200).
+        JSON: Error message if invalid sort parameters are passed (400).
+    """
     page = int(request.args.get('page', 1))
     limit = int(request.args.get('limit', 10))
 
@@ -166,31 +209,66 @@ def get_sorted_posts():
 
 @app.route('/api/v1/categories', methods=['GET'])
 def get_categories():
+    """
+    Retrieves all available blog categories.
+
+    Returns:
+        JSON: A list of category objects (200).
+    """
     return jsonify(CATEGORIES), 200
 
 
 @app.route('/api/v1/posts/filter', methods=['GET'])
 @limiter.limit("10/minute")
 def filter_posts():
-    user = authenticate()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
+    """
+    Retrieves all posts belonging to a specific category.
 
+    Rate limit: 10 requests per minute.
+
+    URL Parameters:
+        category (str): The name of the category to filter by (case-insensitive).
+
+    Returns:
+        JSON: A list of post objects within the requested category (200).
+        JSON: Error messages if missing parameter or category not found (400, 404).
+    """
     category_input = request.args.get('category', '').strip()
-    results = []
 
     if not category_input:
         return jsonify({"error": f"Category is required."}), 400
 
+    found_category = None
+
     for category in CATEGORIES:
         if category["name"].lower() == category_input.lower():
-            results = [post for post in POSTS if post["category_id"] == category["id"]]
+            found_category = category
+            break
+
+    if not found_category:
+        return jsonify({"error": f"Category not found."}), 404
+
+    results = [post for post in POSTS if post["category_id"] == found_category["id"]]
 
     return jsonify(results), 200
 
 
 @app.route('/api/v1/register', methods=['POST'])
+@limiter.limit("10/minute")
 def register():
+    """
+    Registers a new user in the system.
+
+    Rate limit: 10 requests per minute.
+
+    JSON body:
+        username (str): The desired username.
+        password (str): The desired password.
+
+    Returns:
+        JSON: A success message (201).
+        JSON: Error messages for missing payload or existing username (400).
+    """
     data = request.get_json()
 
     if not data:
@@ -207,7 +285,7 @@ def register():
             return jsonify({"error": "User already exists"}), 400
 
     new_user = {
-        "user_id": create_id(USERS),
+        "id": create_id(USERS),
         "username": username,
         "password": password
     }
@@ -220,6 +298,19 @@ def register():
 @app.route('/api/v1/login', methods=['POST'])
 @limiter.limit("10/minute")
 def login():
+    """
+    Authenticates a user and generates a session token.
+
+    Rate limit: 10 requests per minute.
+
+    JSON body:
+        username (str): The user's username.
+        password (str): The user's password.
+
+    Returns:
+        JSON: A success message and the generated UUID token (200).
+        JSON: Error messages for missing payload or invalid credentials (400, 401).
+    """
     data = request.get_json()
 
     if not data:
