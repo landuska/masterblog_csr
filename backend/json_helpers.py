@@ -15,9 +15,9 @@ def load_file(path):
     try:
         with open(path, "r") as file:
             return json.load(file)
-    except FileNotFoundError:
-        return []
     except json.JSONDecodeError:
+        return []
+    except OSError:
         return []
 
 
@@ -35,4 +35,6 @@ def write_file(lst, path):
         with open(path, "w") as file:
             json.dump(lst, file, indent=4)
     except TypeError:
+        return []
+    except OSError:
         return []

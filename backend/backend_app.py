@@ -105,7 +105,7 @@ def delete(post_id):
 
 
 @app.route('/api/v1/posts/<int:post_id>', methods=['PUT'])
-def put(post_id):
+def update_post(post_id):
     """
     Updates the title and content of an existing post.
 
@@ -134,8 +134,10 @@ def put(post_id):
 
     for post in posts:
         if post["id"] == post_id:
-            post["title"] = data.get("title")
-            post["content"] = data.get("content")
+            if "title" in data and data["title"]:
+                post["title"] = data["title"]
+            if "content" in data and data["content"]:
+                post["content"] = data["content"]
             json_helpers.write_file(posts, posts_path)
             return jsonify({"post": post, "message": "Post was updated successfully"}), 200
 
@@ -158,13 +160,17 @@ def search():
         JSON: A list of matching post objects (200).
     """
     posts = json_helpers.load_file(posts_path)
-    title_query = request.args.get("title")
-    content_query = request.args.get("content")
+
+    title_query = request.args.get("title", '').lower().strip()
+    content_query = request.args.get("content", '').lower().strip()
     results = []
 
+    if not title_query and not content_query:
+        return jsonify({"error": "Title or content for search is required"}), 400
+
     for post in posts:
-        title_match = title_query and title_query.lower() in post["title"].lower()
-        content_match = content_query and content_query.lower() in post["content"].lower()
+        title_match = title_query and title_query in post["title"].lower()
+        content_match = content_query and content_query in post["content"].lower()
 
         if title_match or content_match:
             results.append(post)
@@ -191,8 +197,20 @@ def get_sorted_posts():
         JSON: Error message if invalid sort parameters are passed (400).
     """
     results = json_helpers.load_file(posts_path)
-    page = int(request.args.get('page', 1))
-    limit = int(request.args.get('limit', 10))
+
+    page = 1
+    limit = 10
+
+    page_str = request.args.get('page', '')
+    limit_str = request.args.get('limit', '')
+
+    if page_str.isdigit():
+        page = int(page_str)
+        if page <= 0:
+            return jsonify({"error": "Page number must be greater than 0."}), 400
+
+    if limit_str.isdigit():
+        limit = int(limit_str)
 
     sort = request.args.get('sort', '').lower().strip()
     direction = request.args.get('direction', 'asc').lower().strip()
@@ -288,8 +306,8 @@ def register():
     if not data:
         return jsonify({"error": "No JSON provided"}), 400
 
-    username = data.get("username").strip()
-    password = data.get("password").strip()
+    username = data.get("username", '').strip()
+    password = data.get("password", '').strip()
 
     if not username or not password:
         return jsonify({"error": "Username and password are required"}), 400
@@ -332,8 +350,8 @@ def login():
     if not data:
         return jsonify({"error": "No JSON provided"}), 400
 
-    username = data.get("username")
-    password = data.get("password")
+    username = data.get("username", '').strip()
+    password = data.get("password", '').strip()
 
     for user in users:
         if user["username"] == username and user["password"] == password:
